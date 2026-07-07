@@ -1,0 +1,25 @@
+name: teloscale-compose
+
+services:
+  frontend:
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-frontend:1.0.0
+    container_name: teloscale-frontend
+    restart: unless-stopped
+    ports:
+      - "5354:3000"
+    environment:
+      NODE_ENV: ${TELOSCALE_ENVIRONMENT}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
