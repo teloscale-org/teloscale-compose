@@ -2,7 +2,7 @@ name: teloscale-compose
 
 services:
   frontend:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.0.0
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.0.1
     container_name: teloscale-frontend
     restart: unless-stopped
     ports:
