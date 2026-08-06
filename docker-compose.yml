@@ -97,7 +97,7 @@ services:
     networks:
       - teloscale
     ports:
-      - "5151:5151"
+      - "${TELOSCALE_BACK_PORT}:5151"
     healthcheck:
       test:
         [
