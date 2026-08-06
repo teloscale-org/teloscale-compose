@@ -2,13 +2,15 @@ name: teloscale-compose
 
 services:
   frontend:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.0.1
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.1.0
     container_name: teloscale-frontend
     restart: unless-stopped
     ports:
       - "5354:3000"
     environment:
       NODE_ENV: ${TELOSCALE_ENVIRONMENT}
+    networks:
+      - teloscale
     healthcheck:
       test:
         [
@@ -23,3 +25,126 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  mysql:
+    image: mysql:8.4
+    container_name: teloscale-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${TELOSCALE_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${TELOSCALE_MYSQL_DATABASE}
+      MYSQL_USER: ${TELOSCALE_MYSQL_USER}
+      MYSQL_PASSWORD: ${TELOSCALE_MYSQL_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - teloscale
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${TELOSCALE_MYSQL_ROOT_PASSWORD}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  migrate:
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.0
+    container_name: teloscale-migrate
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: ${TELOSCALE_DATABASE_URL}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - teloscale
+    restart: "no"
+
+  backend:
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.0
+    container_name: teloscale-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${TELOSCALE_ENVIRONMENT}
+      PORT: "5151"
+      BASE_URL: ${TELOSCALE_BACK_BASE_URL}
+      DATABASE_URL: ${TELOSCALE_DATABASE_URL}
+      SECRET: ${TELOSCALE_BACK_SECRET}
+      ACCESS_TOKEN_EXPIRES_IN: ${TELOSCALE_BACK_ACCESS_TOKEN_EXPIRES_IN}
+      REFRESH_TOKEN_EXPIRES_IN: ${TELOSCALE_BACK_REFRESH_TOKEN_EXPIRES_IN}
+      RESEND_API_KEY: ${TELOSCALE_RESEND_API_KEY}
+      EMAIL_FROM: ${TELOSCALE_EMAIL_FROM}
+      R2_ACCOUNT_ID: ${TELOSCALE_R2_ACCOUNT_ID}
+      R2_BUCKET_NAME: ${TELOSCALE_R2_BUCKET_NAME}
+      R2_ACCESS_KEY_ID: ${TELOSCALE_R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${TELOSCALE_R2_SECRET_ACCESS_KEY}
+      R2_PUBLIC_DOMAIN: ${TELOSCALE_R2_PUBLIC_DOMAIN}
+      R2_REGION: auto
+      JULIA_SOLVER_URL: "http://solver:7070"
+      SOLVER_API_KEY: ${TELOSCALE_SOLVER_API_KEY}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - teloscale
+    ports:
+      - "5151:5151"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:5151/",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  solver:
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-solver:1.0.0
+    container_name: teloscale-solver
+    restart: unless-stopped
+    environment:
+      SOLVER_API_KEY: ${TELOSCALE_SOLVER_API_KEY}
+    networks:
+      - teloscale
+    # Deliberately no `ports:` — reachable only from other compose services
+    # by the `solver` DNS name on the internal network, never from the host.
+    healthcheck:
+      # Not --spider: that sends a HEAD request, and Oxygen.jl's @get route
+      # only matches GET (HEAD gets a 405), unlike the frontend's static file
+      # server which tolerates HEAD. A real GET, discarded, works instead.
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "-O",
+          "/dev/null",
+          "http://localhost:7070/",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+networks:
+  teloscale:
+    driver: bridge
+
+volumes:
+  mysql-data:
