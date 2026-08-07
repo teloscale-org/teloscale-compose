@@ -57,7 +57,7 @@ services:
       start_period: 20s
 
   migrate:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.0
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.1
     container_name: teloscale-migrate
     command: ["npx", "prisma", "migrate", "deploy"]
     environment:
@@ -70,7 +70,7 @@ services:
     restart: "no"
 
   backend:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.0
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.1
     container_name: teloscale-backend
     restart: unless-stopped
     environment:
