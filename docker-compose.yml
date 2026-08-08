@@ -9,6 +9,7 @@ services:
       - "5354:3000"
     environment:
       NODE_ENV: ${TELOSCALE_ENVIRONMENT}
+      VITE_API_URL: ${TELOSCALE_VITE_API_URL}
     networks:
       - teloscale
     healthcheck:
