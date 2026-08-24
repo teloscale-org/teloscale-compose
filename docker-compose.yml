@@ -5,13 +5,19 @@ services:
     image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.3.0
     container_name: teloscale-frontend
     restart: unless-stopped
-    ports:
-      - "5354:3000"
     environment:
       NODE_ENV: ${TELOSCALE_ENVIRONMENT}
       VITE_API_URL: ${TELOSCALE_VITE_API_URL}
     networks:
-      - teloscale
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.teloscale-frontend.rule=${TELOSCALE_FRONT_TRAEFIK_ROUTER_RULE_EXPRESSION}"
+      - "traefik.http.routers.teloscale-frontend.entrypoints=https"
+      - "traefik.http.routers.teloscale-frontend.tls=true"
+      - "traefik.http.routers.teloscale-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.teloscale-frontend.priority=1"
+      - "traefik.http.services.teloscale-frontend.loadbalancer.server.port=3000"
     healthcheck:
       test:
         [
@@ -57,19 +63,6 @@ services:
       retries: 10
       start_period: 20s
 
-  migrate:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.0.1
-    container_name: teloscale-migrate
-    command: ["npx", "prisma", "migrate", "deploy"]
-    environment:
-      DATABASE_URL: ${TELOSCALE_DATABASE_URL}
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - teloscale
-    restart: "no"
-
   backend:
     image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.1.0
     container_name: teloscale-backend
@@ -92,13 +85,26 @@ services:
       R2_REGION: auto
       JULIA_SOLVER_URL: "http://solver:7070"
       SOLVER_API_KEY: ${TELOSCALE_SOLVER_API_KEY}
+      GOOGLE_CLIENT_ID: ${TELOSCALE_GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${TELOSCALE_GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${TELOSCALE_GOOGLE_REDIRECT_URI}
+      FRONTEND_URL: ${TELOSCALE_BACK_FRONTEND_URL}
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      mysql:
+        condition: service_healthy
     networks:
       - teloscale
-    ports:
-      - "${TELOSCALE_BACK_PORT}:5151"
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.teloscale-backend.rule=${TELOSCALE_BACK_TRAEFIK_ROUTER_RULE_EXPRESSION}"
+      - "traefik.http.routers.teloscale-backend.entrypoints=https"
+      - "traefik.http.routers.teloscale-backend.tls=true"
+      - "traefik.http.routers.teloscale-backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.teloscale-backend.priority=10"
+      - "traefik.http.routers.teloscale-backend.middlewares=teloscale-backend-stripprefix"
+      - "traefik.http.middlewares.teloscale-backend-stripprefix.stripprefix.prefixes=/api"
+      - "traefik.http.services.teloscale-backend.loadbalancer.server.port=5151"
     healthcheck:
       test:
         [
@@ -146,6 +152,8 @@ services:
 networks:
   teloscale:
     driver: bridge
+  traefik:
+    external: true
 
 volumes:
   mysql-data:
