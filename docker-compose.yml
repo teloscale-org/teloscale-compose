@@ -2,7 +2,7 @@ name: teloscale-compose
 
 services:
   frontend:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.7.0
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-front:1.8.0
     container_name: teloscale-frontend
     restart: unless-stopped
     environment:
@@ -64,7 +64,7 @@ services:
       start_period: 20s
 
   backend:
-    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.5.0
+    image: ${TELOSCALE_REGISTRY_URL}/teloscale-back:1.6.0
     container_name: teloscale-backend
     restart: unless-stopped
     environment:
